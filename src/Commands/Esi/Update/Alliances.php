@@ -23,11 +23,8 @@
 namespace Seat\Console\Commands\Esi\Update;
 
 use Illuminate\Console\Command;
+use Seat\Console\Bus\Alliance as AllianceBus;
 use Seat\Eveapi\Jobs\Alliances\Alliances as AlliancesJob;
-use Seat\Eveapi\Jobs\Alliances\Info;
-use Seat\Eveapi\Jobs\Alliances\Members;
-use Seat\Eveapi\Jobs\Contacts\Alliance\Contacts;
-use Seat\Eveapi\Jobs\Contacts\Alliance\Labels;
 use Seat\Eveapi\Models\Alliances\Alliance;
 use Seat\Eveapi\Models\RefreshToken;
 
@@ -35,6 +32,7 @@ use Seat\Eveapi\Models\RefreshToken;
  * Class Alliances.
  *
  * @package Seat\Console\Commands\Esi\Update
+ * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
  */
 class Alliances extends Command
 {
@@ -49,9 +47,39 @@ class Alliances extends Command
     protected $description = 'Schedule update jobs for alliances';
 
     /**
+     * @var array
+     */
+    private $alliance_blacklist = [];
+
+    /**
      * Execute the console command.
      */
     public function handle()
+    {
+        $this->processTokens();
+        $this->processPublic();
+    }
+
+    private function processTokens()
+    {
+        $tokens = RefreshToken::whereHas('character.affiliation', function ($query) {
+            $query->whereNotNull('alliance_id');
+        })->when($this->argument('alliance_ids'), function ($tokens) {
+            return $tokens->whereIn('character.affiliation.alliance_id', $this->argument('alliance_ids'));
+        })->get()->unique('character.affiliation.alliance_id')->each(function ($token) {
+
+            // init a blacklist which will be seed by token loop in order to prevent multiple jobs targetting same alliance
+            // to be queued
+            $this->alliance_blacklist[] = $token->character->affiliation->alliance_id;
+
+            // Fire the class to update alliance information
+            (new AllianceBus($token->character->affiliation->alliance_id, $token))->fire();
+        });
+
+        $this->info('Processed ' . $tokens->count() . ' refresh tokens.');
+    }
+
+    private function processPublic()
     {
         // collect optional alliance ID from arguments
         $alliance_ids = $this->argument('alliance_ids') ?: [];
@@ -65,25 +93,12 @@ class Alliances extends Command
         // loop over alliances and queue detailed jobs
         // if we don't have any alliance registered -> queue a global job to collect them
         if ($alliances->get()->each(function ($alliance) {
-            Info::dispatch($alliance->alliance_id);
-            Members::dispatch($alliance->alliance_id);
+
+            // ignore already processed alliances
+            if (in_array($alliance->alliance_id, $this->alliance_blacklist))
+                return true;
+
+            (new AllianceBus($alliance->alliance_id))->fire();
         })->isEmpty() && empty($alliance_ids)) AlliancesJob::dispatch();
-
-        $tokens = RefreshToken::all()
-            ->when(count($this->argument('alliance_ids')) > 0, function ($tokens) {
-
-                return $tokens->whereIn('character.affiliation.alliance_id', $this->argument('alliance_ids'));
-            })
-            ->each(function ($token) {
-
-                // Fire the class to update alliance information
-                if ($token->character->affiliation->alliance_id != null) {
-                    Contacts::withChain([
-                        new Labels($token->character->affiliation->alliance_id, $token),
-                    ])->dispatch($token->character->affiliation->alliance_id, $token);
-                }
-            });
-
-        $this->info('Processed ' . $tokens->count() . ' refresh tokens.');
     }
 }

@@ -20,8 +20,25 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-return [
+namespace Seat\Console\Bus;
 
-    'version' => '4.2.1',
+use Seat\Eveapi\Bus\Character as CharacterBus;
+use Seat\Eveapi\Models\RefreshToken;
 
-];
+/**
+ * Class Character.
+ * @package Seat\Console\Bus
+ * @deprecated since 4.7.0 - will be replaced by Seat\Eveapi\Bus\Character
+ */
+class Character extends CharacterBus
+{
+    /**
+     * Character constructor.
+     *
+     * @param \Seat\Eveapi\Models\RefreshToken $token
+     */
+    public function __construct(RefreshToken $token)
+    {
+        parent::__construct($token->character_id, $token);
+    }
+}

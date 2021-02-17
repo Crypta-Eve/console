@@ -23,13 +23,14 @@
 namespace Seat\Console\Commands\Esi\Update;
 
 use Illuminate\Console\Command;
-use Seat\Console\Bus\CorporationTokenShouldUpdate;
+use Seat\Console\Bus\Corporation;
 use Seat\Eveapi\Models\RefreshToken;
 
 /**
  * Class Corporations.
  *
  * @package Seat\Console\Commands\Esi\Update
+ * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
  */
 class Corporations extends Command
 {
@@ -38,35 +39,43 @@ class Corporations extends Command
      *
      * @var string
      */
-    protected $signature = 'esi:update:corporations {character_id? : Optional character_id to update ' .
-    'corporation information for}';
+    protected $signature = 'esi:update:corporations {character_id : ID from character tied to the corporation to update}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Schedule updater jobs for corporations';
+    protected $description = 'Schedule updater jobs for corporation';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
+        // to prevent excessive calls, we queue only jobs for tokens with Director role.
+        // more than 80% of corporation endpoints are requiring this role anyway.
+        // https://github.com/eveseat/seat/issues/731
+        $token = RefreshToken::find($this->argument('character_id'));
 
-        $tokens = RefreshToken::all()
-            ->when($this->argument('character_id'), function ($tokens) {
+        if (! $token) {
+            $this->error('The provided ID is invalid or not registered in SeAT.');
 
-                return $tokens->where('character_id', $this->argument('character_id'));
-            })
-            ->each(function ($token) {
+            return;
+        }
 
-                // Fire the class to update corporation information
-                if ($token->character->affiliation->corporation_id != null)
-                    (new CorporationTokenShouldUpdate($token->character->affiliation->corporation_id, $token))->fire();
-            });
+        if (! $token->character->affiliation->corporation_id) {
+            $this->error(sprintf('Unable to process corporation update from %d - %s. The corporation is unknown.',
+                $token->character_id, $token->character->name ?? trans('web::seat.unknown')));
 
-        $this->info('Processed ' . $tokens->count() . ' refresh tokens.');
+            return;
+        }
+
+        // Fire the class to update corporation information
+        (new Corporation($token->character->affiliation->corporation_id, $token))->fire();
+
+        $this->info(sprintf('Processing corporation update %d - %s',
+            $token->character_id, $token->character->name ?? trans('web::seat.unknown')));
 
     }
 }

@@ -20,39 +20,27 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-namespace Seat\Console\Commands\Eve\Update;
+namespace Seat\Console\Bus;
 
-use Illuminate\Console\Command;
-use Seat\Eveapi\Jobs\Status\Status as ServerStatusJob;
+use Seat\Eveapi\Bus\Alliance as AllianceBus;
+use Seat\Eveapi\Models\RefreshToken;
 
 /**
- * Class Status.
+ * Class Alliance.
  *
- * @package Seat\Console\Commands\Eve\Update
- * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
+ * @package Seat\Console\Bus
+ * @deprecated since 4.7.0 - will be replaced by Seat\Eveapi\Bus\Alliance
  */
-class Status extends Command
+class Alliance extends AllianceBus
 {
     /**
-     * The name and signature of the console command.
+     * Alliance constructor.
      *
-     * @var string
+     * @param int $alliance_id
+     * @param \Seat\Eveapi\Models\RefreshToken|null $token
      */
-    protected $signature = 'eve:update:status';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Schedule updater jobs for the EVE server status';
-
-    /**
-     * Execute the console command.
-     */
-    public function handle()
+    public function __construct(int $alliance_id, ?RefreshToken $token = null)
     {
-
-        ServerStatusJob::dispatch()->onQueue('high');
+        parent::__construct($alliance_id, $token);
     }
 }

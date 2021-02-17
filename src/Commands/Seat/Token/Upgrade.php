@@ -23,15 +23,16 @@
 namespace Seat\Console\Commands\Seat\Token;
 
 use Carbon\Carbon;
-use DB;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Seat\Eveapi\Models\RefreshToken;
 
 /**
  * Class Upgrade.
  * @package Seat\Console\Commands\Seat\Token
+ * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
  */
 class Upgrade extends Command
 {
@@ -141,6 +142,5 @@ class Upgrade extends Command
             $this->info('Success: '. $success);
             $this->warn('Temp Fail: '. $errors);
             $this->error('Perm Fail: '. $perm);
-
     }
 }

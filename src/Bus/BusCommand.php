@@ -25,6 +25,7 @@ namespace Seat\Console\Bus;
 /**
  * Class BusCommand.
  * @package Seat\Console\Bus
+ * @deprecated since 4.7.0 - will be replaced by Seat\Eveapi\Bus\Bus
  */
 abstract class BusCommand
 {

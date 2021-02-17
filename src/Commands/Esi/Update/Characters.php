@@ -23,13 +23,14 @@
 namespace Seat\Console\Commands\Esi\Update;
 
 use Illuminate\Console\Command;
-use Seat\Console\Bus\CharacterTokenShouldUpdate;
+use Seat\Console\Bus\Character;
 use Seat\Eveapi\Models\RefreshToken;
 
 /**
  * Class Characters.
  *
  * @package Seat\Console\Commands\Esi\Update
+ * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
  */
 class Characters extends Command
 {
@@ -38,14 +39,14 @@ class Characters extends Command
      *
      * @var string
      */
-    protected $signature = 'esi:update:characters {character_id? : Optional character_id to update}';
+    protected $signature = 'esi:update:characters {character_id : ID from character to update}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Schedule updater jobs for characters';
+    protected $description = 'Schedule updater jobs for character';
 
     /**
      * Execute the console command.
@@ -53,17 +54,18 @@ class Characters extends Command
     public function handle()
     {
 
-        $tokens = RefreshToken::all()
-            ->when($this->argument('character_id'), function ($tokens) {
+        $token = RefreshToken::find($this->argument('character_id'));
 
-                return $tokens->where('character_id', $this->argument('character_id'));
-            })
-            ->each(function ($token) {
+        if (! $token) {
+            $this->error('The provided ID is invalid or not registered in SeAT.');
 
-                // Fire the class that handles the collection of jobs to run.
-                (new CharacterTokenShouldUpdate($token, 'default'))->fire();
-            });
+            return;
+        }
 
-        $this->info('Processed ' . $tokens->count() . ' refresh tokens.');
+        // Fire the class that handles the collection of jobs to run.
+        (new Character($token))->fire();
+
+        $this->info(sprintf('Processing character update %d - %s',
+            $token->character_id, $token->character->name ?? trans('web::seat.unknown')));
     }
 }

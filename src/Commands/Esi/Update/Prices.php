@@ -30,6 +30,7 @@ use Seat\Eveapi\Models\Sde\InvType;
  * Class Prices.
  *
  * @package Seat\Console\Commands\Esi\Update
+ * @deprecated since 4.7.0 - this will be moved into eveapi package in a near future
  */
 class Prices extends Command
 {
@@ -59,9 +60,9 @@ class Prices extends Command
             ->get();
 
         // build small batch of a maximum of 200 entries to avoid long running job.
-        $types->chunk(200)->each(function ($chunk) {
+        $types->chunk(50)->each(function ($chunk) {
             $ids = $chunk->pluck('typeID')->toArray();
-            History::dispatch($ids);
+            History::dispatch($ids)->delay(rand(20, 300));
         });
     }
 }
